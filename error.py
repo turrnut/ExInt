@@ -1,4 +1,4 @@
-import intrepreter as lang
+import interpreter as lang
 
 class Exception:
     def __init__(self, start, end, name, description) -> None:
