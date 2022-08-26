@@ -4,15 +4,15 @@ import intrepreter as lang
 try:
 
   print(f"""
-The Ur programming language
+The Zenith programming language
 Version: {lang.version}
 """)
   while True:
-    enter = input("arkShell $ ")
+    enter = input("zenShell $ ")
       if enter == "quit":
           sys.exit(0)
 
-      result, error = lang.run("shell.ark", enter)
+      result, error = lang.run("shell.zen", enter)
       if error :
           print(error)
       else:
