@@ -1,22 +1,22 @@
 import sys
-import intrepreter as lang
+import interpreter as lang
 
 try:
 
-  print(f"""
+    print(f"""
 The Zenith programming language
 Version: {lang.version}
 """)
-  while True:
-    enter = input("zenShell $ ")
-      if enter == "quit":
-          sys.exit(0)
+    while True:
+        enter = input("zenShell $ ")
+        if enter == "quit":
+            sys.exit(0)
 
-      result, error = lang.run("shell.zen", enter)
-      if error :
-          print(error)
-      else:
-          print(result.value)
+        result, error = lang.run("shell.zen", enter)
+        if error :
+            print(error)
+        else:
+            print(result.value)
 
             
 except Exception as e:
