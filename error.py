@@ -26,7 +26,9 @@ class Exception:
             context = context.parent
         return result
 
-        
+class NameException(Exception):
+    def __init__(self, start, end, description) -> None:
+        super().__init__(start, end, "NameException", description)
 class RuntimeException(Exception):
     def __init__(self, start, end, name, description, context) -> None:
         super().__init__(start, end, name, description)
@@ -39,7 +41,9 @@ class RuntimeException(Exception):
         
     """+lang.showerror(self.start.text, self.start, self.end)
         return result
-
+class InOperableException(Exception):
+    def __init__(self, start, end, description) -> None:
+        super().__init__(start, end, "InOperableException", description)
 class DivisionByZeroException(RuntimeException):
     def __init__(self, start, end, description, context) -> None:
         super().__init__(start, end, "DivisionByZeroException", description, context)
@@ -62,7 +66,9 @@ class SyntaxIllegalException(IllegalException):
         self.end = end
 
         super().__init__(start, end, "SyntaxIllegalException", description)
-
+class OperatorIllegalException(IllegalException):
+    def __init__(self, start, end, description) -> None:
+        super().__init__(start, end, "OperatorIllegalException", description)
 class CharacterIllegalException(IllegalException):
     def __init__(self, start, end, description) -> None:
         self.start = start
