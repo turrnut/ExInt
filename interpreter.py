@@ -1,56 +1,58 @@
+# This code is written by turrnut
+# open source under the AGPL-v3.0 license
+# Copyright
+#
+
 import sys
 import tokens
-
-import string
 from types import NoneType
 from error import *
 
-version = 1.0
+version = "1.0"
 
 KEYWORD_DICT = {
     "variable_definition":"val",
     "boolean_true":"true",
     "boolaen_false":"false",
     "logical_and":"&&",
-    "logical_not":"!",
+    "logical_not":"!=",
     "logical_or":"||"
 }
 
-VAR_PTN = string.ascii_letters + "$"
+VAR_PTN = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_" + "$|&"
 DIGITS = "0123456789"
 
 FILENAME = ""
 TEXT = ""
-
-imports = ""
-
-
 def run (filename, text):
     """
         RUN THE CODE <text> using the <filename> file name.
         arguments:
         filename - file name of the code file
     """
-    lex = Lexer(filename, text)
-    tokens, error = lex.tokens()
+    tokens, error = Tokenizer(filename, text).tokens()
 
     if error :
         return None, error
 
-    parser = Parser(tokens)
-    abstract_syntax_tree = parser.parse()
+    abstract_syntax_tree = Parser().parse(tokens)
 
-    cal = Calculator()
-    context = Context("main")
+    context = Enviroment("main")
     context.symbols = global_data
     
     if check(abstract_syntax_tree):
         return None, abstract_syntax_tree.error
-    resp = cal.cal(abstract_syntax_tree.node, context)
-    
+    resp = Calculator().cal(abstract_syntax_tree.fork, context)
+    if type(resp) == tuple:
+        return RuntimeResponse().success(NoValue), None
     return resp, resp.error
 
 def check(obj):
+    """
+    Check if the <obj> Object contains an error
+    arguments:
+    obj - the Object to check
+    """
     if obj.error:
         return True
     return False
@@ -63,17 +65,25 @@ def showerror(text, poss, pose):
         pose - end position
     """
     result = ''
-    start = max(text.rfind('\n', 0, poss.index), 0)
+    start = 0
+    end = 0
+    if text.rfind('\n', 0, poss.index) > 0 :
+        start = text.rfind('\n', 0, poss.index)
+    
+    elif text.rfind(';', 0, poss.index) > 0:
+        start = text.rfind(';', 0, poss.index)
     end = text.find('\n', start + 1)
     if end < 0:
-        end = len(text)
+        end = text.find(';', start + 1)
+        if end < 0 :
+            end = len(text)
     count = pose.line - poss.line + 1
     for index in range(count):
         line = text[start:end]
+        cols = 0
         if index == 0:
             cols = poss.col
-        else:
-            cols = 0
+        
         if index == count - 1:
             cole = pose.col
         else :
@@ -84,607 +94,721 @@ def showerror(text, poss, pose):
         end = text.find('\n', start + 1)
         if end < 0:
             end = len(text)
+    result = result.replace("\t", "")
 
-    return "\a" + result.replace("\t", "")
-class Bool:
-    def __init__(self, value) -> None:
-        self.value = value
-        self.setcontext()
+    return "\a" + result
+class Object:
+    pass
+class Int(Object):
+    def __init__(this, value) -> None:
+        this.value = value
+        this.setcontext()
 
-    def clone(self):
-        new = Digit(self.value)
-        if type(self) == NoValue:
+    def clone(this):
+        new = Int(this.value)
+        if type(this) == NoValue:
             new.locate()
             new.setcontext()
             return new
-        new.locate(self.start, self.end)
-        new.setcontext(self.context)
+        new.locate(this.start, this.end)
+        new.setcontext(this.context)
+
         return new
 
-    def locate(self, start=None, end=None):
-        self.start = start
-        self.end = end
-        return self
+    def locate(this, start=None, end=None):
+        this.start = start
+        this.end = end
+        return this
 
-    def setcontext(self, context=None):
-        self.context = context
-        return self
-        
-    def equals(self, factor):
-        if check(factor):
-            if self.value == 0 and factor.value == 0 :
-                return True
-            elif self.value != 0 and factor.value != 0 :
-                return False
-    def not_equals(self, factor):
-        if check(factor):
-            if self.value == 0 and factor.value == 0 :
-                return False
-            elif self.value != 0 and factor.value != 0 :
-                return False
-            return True
+    def setcontext(this, context=None):
+        this.context = context
+        return this
+
+    def not_op(this):
+        if this.value == 0:
+            return Bool(1).setcontext(this.context), None
+        return Bool(0).setcontext(this.context), None
+
+    def ee(this, num):
+        if this.check(num):
+            if this.value == num.value:
+                return Bool(0).setcontext(this.context), None
+            return Bool(1).setcontext(this.context), None
+    def ne(this, num):
+        if this.check(num):
+            if this.value != num.value:
+                return Bool(0).setcontext(this.context), None
+            return Bool(1).setcontext(this.context), None
+    def gt(this, num):
+        if this.check(num):
+            if this.value > num.value:
+                return Bool(0).setcontext(this.context), None
+            return Bool(1).setcontext(this.context), None
+    def lt(this, num):  
+        if this.check(num):
+            if this.value < num.value:
+                return Bool(0).setcontext(this.context), None
+            return Bool(1).setcontext(this.context), None
+    def gte(this, num):
+        if this.check(num):
+            if this.value >= num.value:
+                return Bool(0).setcontext(this.context), None
+            return Bool(1).setcontext(this.context), None
+    def lte(this, num):
+        if this.check(num):
+            if this.value <= num.value:
+                return Bool(0).setcontext(this.context), None
+            return Bool(1).setcontext(this.context), None
     
-    def and_op(self, factor):
-        if check(factor):
-            if self.value == 0 and factor.value == 0 :
-                return True
-            return False
+    def modulo(this, factor):
+        if this.check(factor):
+            return Int(this.value % factor.value).setcontext(), None
 
-    def or_op(self,factor):
-        if self.value == 0 and factor.value == 0 :
-            return True
-        elif self.value != 0 and factor.value == 0 :
-            return True
-        elif self.value == 0 and factor.value != 0 :
-            return True
-        elif self.value != 0 and self.value != 0 :
-            return False
+    def power(this, factor):
+        if this.check(factor):
+            return Int(pow(this.value, factor.value)).setcontext(), None
+        
+    def add(this, factor):
+        if this.check(factor): 
+            return Int(this.value + factor.value).setcontext(), None
 
-    def check(self, obj):
+    def minus(this, factor):
+        if this.check(factor): 
+            return Int(this.value - factor.value).setcontext(), None
+
+    def multiply(this, factor):
+        if this.check(factor): 
+            return Int(this.value * factor.value).setcontext(), None
+    
+    def divide(this, factor):
+        if this.check(factor):
+            if factor.value == 0:
+                if type(factor) == Int:
+                    return None, DivisionByZeroException(factor.start, factor.end, "Cannot divide by zero", this.context)
+                return None, DivisionByZeroException(this.start, this.end, "Cannot divide by zero", this.context)
+            return Int(this.value / factor.value).setcontext(), None
+    
+    def __repr__(this) -> str:
+        return f"{this.value}"
+    def __str__(this) -> str:
+        return f"{this.value}"
+
+    def check(this, obj):
+        return isinstance(obj, Int) and obj != None
+class Bool(Object):
+    def __init__(this, value) -> None:
+        this.value = value
+        this.setcontext()
+        this.locate()
+
+    def clone(this):
+        new = Int(this.value)
+        if type(this) == NoValue:
+            new.locate()
+            new.setcontext()
+            return new
+        new.locate(this.start, this.end)
+        new.setcontext(this.context)
+        return new
+    def locate(this, start=None, end=None):
+        this.start = start
+        this.end = end
+        return this
+
+    def setcontext(this, context=None):
+        this.context = context
+        return this
+  
+    def equals(this, factor) -> bool:
+        if this.check(factor):
+            if this.value == 0 and factor.value == 0 :
+                return Bool(0).setcontext(), None
+            elif this.value != 0 and factor.value != 0 :
+                return Bool(0).setcontext(), None
+            elif this.value == 0 and factor.value != 0:
+                return Bool(1).setcontext(), None
+            elif this.value != 0 and factor.value == 0:
+                return Bool(1).setcontext(), None
+    def not_equals(this, factor) -> bool:
+        if this.check(factor):
+            if this.value == 0 and factor.value == 0 :
+                return Bool(1).setcontext(), None
+            elif this.value != 0 and factor.value != 0 :
+                return Bool(1).setcontext(), None
+            return Bool(0).setcontext(), None
+    
+    def and_op(this, factor) -> bool:
+        if this.check(factor):
+            if this.value == 0 and factor.value == 0 :
+                return Bool(0).setcontext(), None
+            return Bool(1).setcontext(), None
+
+    def or_op(this,factor) -> bool:
+        if this.check(factor):
+            if this.value == 0 and factor.value == 0 :
+                return Bool(0).setcontext(), None
+            elif this.value != 0 and factor.value == 0 :
+                return Bool(0).setcontext(), None
+            elif this.value == 0 and factor.value != 0 :
+                return Bool(0).setcontext(), None
+            elif this.value != 0 and this.value != 0 :
+                return Bool(1).setcontext(), None
+
+    def check(this, obj):
         return isinstance(obj, Bool)
     
-    def __repr__(self) -> str:
-        if self.value == 0:
+    def __repr__(this) -> str:
+        if this.value == 0:
+            return "true"
+        return "false"
+    def __str__(this) -> str:
+        if this.value == 0:
             return "true"
         return "false"
 
 class Calculator:
-    def cal(self, node, context):
-        name = f"cal_{type(node).__name__}"
-        fun = getattr(self, name, self.no)
-        result = fun(node, context)
+    def cal(this, fork, context):
+        name = f"cal_{type(fork).__name__}"
+        fun = getattr(this, name, this.no)
+        result = fun(fork, context)
         return result
     
-    def cal_VariableCreate(self, node, context):
+    def cal_VariableCreate(this, fork, context):
         response = RuntimeResponse()
-        key = node.name_token.value
-        value = response.response(Calculator().cal(node.value, context))
+        key = fork.name_token.value
+        value = response.response(Calculator().cal(fork.value, context))
 
         if check(response):
             return response
         BANNED = ["nov"]
-        if key in BANNED :
-            response.error = SyntaxIllegalException(node.start, node.end, f"Invalid Syntax of usage of keyword '{key}' ")
+        for c in key:
+            if c in "$|&":
+                response.error = NameException(fork.start, fork.end, f"Invalid Naming of variable {key}")
+                break    
+
         if check(response):
             return response
 
+        if key in BANNED:
+            response.error = SyntaxIllegalException(fork.start, fork.end, f"Invalid Syntax of usage of keyword '{key}' ")
+
+        if check(response):
+            return response
         context.symbols.set(key, value)
         
         return response.success(value)
 
-    def cal_VariableAccess(self, node, context):
+    def cal_VariableAccess(this, fork, context):
         response = RuntimeResponse()
-        key = node.name_token.value
+        key = fork.name_token.value
 
         value = context.symbols.get(key)
 
         if not value:
-            return response.failure(RuntimeException(node.start, node.end, "RuntimeException", f"{key} is not defined", context))
+            return response.failure(RuntimeException(fork.start, fork.end, "RuntimeException", f"{key} is not defined", context))
         
-        value = value.clone().locate(node.start, node.end)
+        value = value.clone().locate(fork.start, fork.end)
 
         return response.success(value)
-    def cal_Number(self, node, context):
-        return RuntimeResponse().success(Digit(node.token.value).setcontext(context).locate(node.start, node.end))
+    def cal_Number(this, fork, context):
+        return RuntimeResponse().success(Int(fork.token.value).setcontext(context).locate(fork.start, fork.end))
 
-    def cal_Binary(self, node, context):
+    def cal_Bool(this, fork, context):
+        return RuntimeResponse().success((fork).setcontext(context).locate(fork.start, fork.end))
+
+    def cal_Binary(this, fork, context):
         response = RuntimeResponse()
-        l = response.response(self.cal(node.l, context))
+        l = response.response(this.cal(fork.l, context))
         if check(response):
             return response
+        result, error = None, None
 
-        r = response.response(self.cal(node.r, context))
+        r = response.response(this.cal(fork.r, context))
         if check(response):
             return response
+        if isinstance(r, Int) and isinstance(l, Int):
+            if fork.o.type == tokens.plus : result, error = l.add(r)
+            elif fork.o.type == tokens.minus : result, error = l.minus(r)
+            elif fork.o.type == tokens.mul : result, error = l.multiply(r)
+            elif fork.o.type == tokens.div : result, error = l.divide(r)
+            elif fork.o.type == tokens.POWER : result, error = l.power(r)
+            elif fork.o.type == tokens.MOD : result, error = l.modulo(r)
+            elif fork.o.type == tokens.EE : result, error = l.ee(r)
+            elif fork.o.type == tokens.NE : result, error = l.ne(r)
+            elif fork.o.type == tokens.GT : result, error = l.gt(r)
+            elif fork.o.type == tokens.GTE : result, error = l.gte(r)
+            elif fork.o.type == tokens.LT : result, error = l.lt(r)
+            elif fork.o.type == tokens.LTE : result, error = l.lte(r)
+        elif isinstance(l, Bool) and isinstance(r, Bool):
+            if fork.o.equals(tokens.KW, KEYWORD_DICT["logical_and"]): 
 
-        flag = False
+                result, error = l.and_op(r)
+            elif fork.o.equals(tokens.KW, KEYWORD_DICT["logical_or"]):result, error = l.or_op(r)
+            elif fork.o.type == tokens.NE: result, error = l.not_equals(r)
+            elif fork.o.type == tokens.EE: result, error = l.equals(r)
 
-        if node.o.type == tokens.PLUS:
-            result, error = l.add(r)
-        elif node.o.type == tokens.MINUS:
-            result, error = l.minus(r)
-        elif node.o.type == tokens.MUL:
-            result, error = l.multiply(r)
-        elif node.o.type == tokens.DIV:
-            result, error = l.divide(r)
-        elif node.o.type == tokens.POWER:
-            result, error = l.power(r)
-        
-        elif node.o.type == tokens.MOD:
-            result, error = l.modulo(r)
-        else :
-            flag = True
+        elif type(result)== NoneType or type(response) == NoneType: 
+            return NoValue(), None
+        if error: return response.failure(error)
+        return response.success(result.locate(fork.start, fork.end))
+    def checktype(this):
+        pass
 
-        if error and flag:
-            return response.failure(error)
-        if type(result) == NoneType :
-            return response.failure(error)
-        return response.success(result.locate(node.start, node.end))
-
-    def cal_Unary(self, node, context):
+    def cal_Unary(this, fork, context):
         response = RuntimeResponse()
-        result = response.response(self.cal(node.n, context))
+        result = response.response(this.cal(fork.n, context))
         if check(response) :
             return response
         
-        if node.o.type == tokens.MINUS:
-            result, error = result.multiply(Digit(-1))
+        if fork.o.type == tokens.minus:
+            result, error = result.multiply(Int(-1))
+        elif fork.o.equal(tokens.KW, KEYWORD_DICT["logical_not"]):
+            result, error = result.not_op()
+
         if error :
             response.failure(error)
-        return response.success(result.locate(node.start, node.end))
+        return response.success(result.locate(fork.start, fork.end))
 
-    def no(self, a, b):
+    def no(this, a, b):
         pass
-class Context:
-    def __init__(self, name, parent=None, parent_position=None) -> None:
-        self.name = name
-        self.parent = parent
-        self.parent_position = parent_position
-        self.symbols = DataTable()
+class Enviroment:
+    def __init__(this, name, parent=None, parent_position=None) -> None:
+        this.name = name
+        this.parent = parent
+        this.parent_position = parent_position
+        this.symbols = DataTable()
 
-class Digit:
-    def __init__(self, value) -> None:
-        self.value = value
-        self.setcontext()
-
-    def clone(self):
-        new = Digit(self.value)
-        if type(self) == NoValue:
-            new.locate()
-            new.setcontext()
-            return new
-        new.locate(self.start, self.end)
-        new.setcontext(self.context)
-        return new
-
-    def locate(self, start=None, end=None):
-        self.start = start
-        self.end = end
-        return self
-
-    def setcontext(self, context=None):
-        self.context = context
-        return self
-
-    def modulo(self, factor):
-        if self.check(factor):
-            return Digit(self.value % factor.value).setcontext(), None
-
-    def power(self, factor):
-        if self.check(factor):
-            return Digit(pow(self.value, factor.value)).setcontext(), None
-        
-    def add(self, factor):
-        if self.check(factor): 
-            return Digit(self.value + factor.value).setcontext(), None
-
-    def minus(self, factor):
-        if self.check(factor): 
-            return Digit(self.value - factor.value).setcontext(), None
-
-    def multiply(self, factor):
-        if self.check(factor): 
-            return Digit(self.value * factor.value).setcontext(), None
-    
-    def divide(self, factor):
-        if self.check(factor):
-            if factor.value == 0:
-                if type(factor) == Digit:
-                    return None, DivisionByZeroException(factor.start, factor.end, "Cannot divide by zero", self.context)
-                return None, DivisionByZeroException(self.start, self.end, "Cannot divide by zero", self.context)
-            return Digit(self.value / factor.value).setcontext(), None
-    
-    def __repr__(self) -> str:
-        return f"{self.value}"
-
-    def check(self, obj):
-        return isinstance(obj, Digit)
 class Token:
-    def __init__(self, type, value=None, start=None, end=None) -> None:
-        self.type = type
-        self.value = value
+    def __init__(this, type, value=None, start=None, end=None) -> None:
+        this.type = type
+        this.value = value
 
         if start: 
-            self.start = start.clone()
-            self.end = start.clone()
-            self.end.step()
-        if end : self.end = end
-    def __repr__(self) -> str:
-        if self.value :
-            return f"{self.type}:{self.value}"
-        return f"{self.type}"
-    def equal(self, type, value):
-        return self.type == type and self.value == value
-class Lexer :
-    def __init__(self, name, text) -> None:
-        self.text = text
-        self.filename = name
-        self.position = Position(-1, 0, -1, name, text)
-        self.current = None
-        self.step()
+            this.start = start.clone()
+            this.end = start.clone()
+            this.end.step()
+        if end : this.end = end
+    def __repr__(this) -> str:
+        if this.value :
+            return f"{this.type}:{this.value}"
+        return f"{this.type}"
+    def equals(this, type, value):
+        return this.type == type and this.value == value
+class Tokenizer :
+    def __init__(this, name, text) -> None:
+        this.text = text
+        this.filename = name
+        this.position = Position(-1, 0, -1, name, text)
+        this.current = None
+        this.step()
     
-    def step(self):
-        self.position.step(self.current)
-        self.current = self.text[self.position.index] if self.position.index < len(self.text) else None
+    def step(this):
+        this.position.step(this.current)
+        this.current = this.text[this.position.index] if this.position.index < len(this.text) else None
 
-    def tokens(self):
+    def tokens(this):
         tokenlist = []
-        while self.current != None:
-            if self.current in " \t\r\n;":
-                self.step()
-            elif self.current in DIGITS:
-                tokenlist.append(self.numbers())
-            elif self.current in VAR_PTN :
-                tokenlist.append(self.id())
+        while this.current != None:
+            if this.current in " \t\r\n;":
+                this.step()
+            elif this.current in DIGITS:
+                tokenlist.append(this.numbers())
+            elif this.current in VAR_PTN :
+                tokenlist.append(this.id())
                     
-            elif self.current == "%":
-                tokenlist.append(Token(tokens.MOD, start=self.position))
-                self.step()
-            elif self.current == "^":
-                tokenlist.append(Token(tokens.POWER, start=self.position))
-                self.step()
-            elif self.current == "+":
-                tokenlist.append(Token(tokens.PLUS, start=self.position))
-                self.step()
-            elif self.current == "-":
-                tokenlist.append(Token(tokens.MINUS, start=self.position))
-                self.step()
-            elif self.current == "*":
-                tokenlist.append(Token(tokens.MUL, start=self.position))
-                self.step()
-            elif self.current == "/":
-                tokenlist.append(Token(tokens.DIV, start=self.position))
-                self.step()
-            elif self.current == "(":
-                tokenlist.append(Token(tokens.LPN, start=self.position))
-                self.step()
-            elif self.current == ")":
-                tokenlist.append(Token(tokens.RPN, start=self.position))
-                self.step()
-            elif self.current == "!":
-                token, error = self.not_equals()
+            elif this.current == "%":
+                tokenlist.append(Token(tokens.MOD, start=this.position))
+                this.step()
+            elif this.current == "^":
+                tokenlist.append(Token(tokens.POWER, start=this.position))
+                this.step()
+            elif this.current == "+":
+                tokenlist.append(Token(tokens.plus, start=this.position))
+                this.step()
+            elif this.current == "-":
+                tokenlist.append(Token(tokens.minus, start=this.position))
+                this.step()
+            elif this.current == "*":
+                tokenlist.append(Token(tokens.mul, start=this.position))
+                this.step()
+            elif this.current == "/":
+                tokenlist.append(Token(tokens.div, start=this.position))
+                this.step()
+            elif this.current == "(":
+                tokenlist.append(Token(tokens.LPN, start=this.position))
+                this.step()
+            elif this.current == ")":
+                tokenlist.append(Token(tokens.RPN, start=this.position))
+                this.step()
+            elif this.current == "!":
+                token, error = this.not_equals()
                 if error:
                     return [], error
                 tokenlist.append(token)
-            elif self.current == "=":
-                tokenlist.append(self.equals())
-            elif self.current == "<":
-                tokenlist.append(self.lt())
-            elif self.current == ">":
-                tokenlist.append(self.gt())
+            elif this.current == "=":
+                tokenlist.append(this.equals())
+            elif this.current == "<":
+                tokenlist.append(this.lt())
+            elif this.current == ">":
+                tokenlist.append(this.gt())
             else:
-                start = self.position.clone()
-                char = self.current
-                self.step()
-                return [], CharacterIllegalException(start, self.position, "Illegal Characteracter '"+char+"'")
-        tokenlist.append(Token(tokens.END, start = self.position))
+                start = this.position.clone()
+                char = this.current
+                this.step()
+                return [], CharacterIllegalException(start, this.position, "Illegal Characteracter '"+char+"'")
+        tokenlist.append(Token(tokens.END, start = this.position))
 
         return tokenlist,None
 
-    def lt(self):
+    def lt(this):
         ttype = tokens.LT
-        start = self.position.clone()
-        self.step()
+        start = this.position.clone()
+        this.step()
         
-        if self.current == "=":
-            self.step()
+        if this.current == "=":
+            this.step()
             ttype = tokens.LTE
 
-        end = self.position
+        end = this.position
         return Token(type=ttype, start=start, end=end)
 
-    def gt(self):
+    def gt(this):
         ttype = tokens.GT
-        start = self.position.clone()
-        self.step()
+        start = this.position.clone()
+        this.step()
         
-        if self.current == "=":
-            self.step()
+        if this.current == "=":
+            this.step()
             ttype = tokens.GTE
 
-        end = self.position
+        end = this.position
         return Token(type=ttype, start=start, end=end)
 
-    def equals(self):
+    def equals(this):
         ttype = tokens.EQ
-        start = self.position.clone()
-        self.step()
+        start = this.position.clone()
+        this.step()
         
-        if self.current == "=":
-            self.step()
+        if this.current == "=":
+            this.step()
             ttype = tokens.EE
 
-        end = self.position
+        end = this.position
         return Token(type=ttype, start=start, end=end)
 
-    def not_equals(self):
-        start = self.position.clone()
-        self.step()
-        end = self.position
-        if self.current == "=":
-            self.step()
-            end = self.position
+    def not_equals(this):
+        start = this.position.clone()
+        this.step()
+        end = this.position
+        if this.current == "=":
+            this.step()
+            end = this.position
             return Token(tokens.NE, start=start , end=end), None
-        self.step()
+        this.step()
         return None, CharacterIllegalException(start, end, "Invalid operater, are you referring '!=' ?")
 
 
-    def id(self):
+    def id(this):
         id = ""
-        start = self.position.clone()
+        start = this.position.clone()
 
-        while self.current != None and self.current in VAR_PTN + DIGITS + "_":
-            id += self.current
-            self.step()
+        while this.current != None and this.current in VAR_PTN + DIGITS:
+            id += this.current
+            this.step()
         token_type = tokens.ID
         for k in KEYWORD_DICT:
             if id == KEYWORD_DICT[k]:
                 token_type = tokens.KW
-        end = self.position
+        end = this.position
+        if id == "true":
+            token_type = tokens.boolean
+            return Token(token_type, Bool(0), start, end)
+        elif id == "false":
+            token_type = tokens.boolean
+            return Token(token_type, Bool(1), start, end)
         
         return Token(token_type, id, start, end)
         
-    def numbers(self):
+    def numbers(this):
         numstr = ""
         dots = 0
-        start = self.position.clone()
+        start = this.position.clone()
 
-        while self.current != None and self.current in DIGITS + ".":
-            if self.current == ".":
+        while this.current != None and this.current in DIGITS + ".":
+            if this.current == ".":
                 if dots == 1:
                     break
                 dots += 1
                 numstr += "."
             else:
-                numstr += self.current
-            self.step()
+                numstr += this.current
+            this.step()
             
         if dots == 0:
-            return Token(tokens.INT, int(numstr), start=start, end=self.position )
+            return Token(tokens.INT, int(numstr), start=start, end=this.position )
         else:
-            return Token(tokens.DEC, float(numstr), start=self.position, end=self.position)
-
+            return Token(tokens.DEC, float(numstr), start=this.position, end=this.position)
 class Number:
-    def __init__(self, token) -> None:
-        self.token = token
+    def __init__(this, token) -> None:
+        this.token = token
 
-        self.start = token.start
-        self.end = token.end
+        this.start = token.start
+        this.end = token.end
     
-    def __repr__(self):
-        return f"{self.token}"
+    def __repr__(this):
+        return f"{this.token}"
 class Binary:
-    def __init__(self, l, o, r) -> None:
-        self.l = l
-        self.o = o
-        self.r = r
+    def __init__(this, l, o, r) -> None:
+        this.l = l
+        this.o = o
+        this.r = r
+        if l.start and r.end:
+            this.start = l.start
+            this.end = r.end
 
-        self.start = l.start
-        self.end = r.end
-
-    def __repr__(self) -> str:
-        return f"({self.l},{self.o},{self.r})"
+    def __repr__(this) -> str:
+        return f"({this.l},{this.o},{this.r})"
 class Response:
-    def __init__(self) -> None:
-        self.node = None
-        self.error = None
-    def response(self, result):
+    def __init__(this) -> None:
+        this.fork = None
+        this.error = None
+    def response(this, result):
         if isinstance(result, Response):
-            if check(result) :self.error = result.error
-            return result.node
+            if check(result) :this.error = result.error
+            return result.fork
         return result
     
-    def success(self, node):
-        self.node = node
-        return self
+    def success(this, fork):
+        this.fork = fork
+        return this
     
-    def failure(self, error):
-        self.error = error
-        return self
+    def failure(this, error):
+        this.error = error
+        return this
 class DataTable:
-    def __init__(self) -> None:
-        self.data = {}
-        self.parent = None
+    def __init__(this) -> None:
+        this.data = {}
+        this.parent = None
 
-    def get(self, key):
-        value = self.data.get(key, None)
-        if value == None and self.parent :
-            return self.parent.get(key)
+    def get(this, key):
+        value = this.data.get(key, None)
+        if value == None and this.parent :
+            return this.parent.get(key)
         return value
 
-    def set(self, key, value):
-        self.data[key] = value
+    def set(this, key, value):
+        this.data[key] = value
 
-    def pop(self, key):
-        del self.data[key]
+    def pop(this, key):
+        del this.data[key]
 
 class RuntimeResponse(Response):
-    def __init__(self) -> None:
-        self.error = None
-        self.value = None
+    def __init__(this) -> None:
+        this.error = None
+        this.value = None
 
-    def response(self, response):
+    def response(this, response):
 
         if check(response):
-            self.error = response.error
+            this.error = response.error
         return response.value
 
-    def success(self, value):
-        self.value = value
-        return self
+    def success(this, value):
+        this.value = value
+        return this
     
 class Parser:
-    def __init__(self, tokens) -> None:
-        self.current = None
-        self.tokens = tokens
-        self.index = -1
-        self.step()
-    def parse(self):
-        result = self.expr()
-        
+    def parse(this, tokens):
+        this.current = None
+        this.tokenlist = tokens
+        this.index = -1
+        this.step()
+        result = this.expr()
         if check(result):
-            return result.failure(SyntaxIllegalException(self.current.start, self.current.end, "Invalid Syntax"))
-
+            err = type(result.error)
+            return result.failure(err(this.current.start, this.current.end, "Invalid Syntax"))
         return result
-    def step(self):
-        self.index += 1
-        if self.index < len(self.tokens):
-            self.current = self.tokens[self.index]
-        return self.current
-    def expr(self):
+    def step(this):
+        this.index += 1
+        if this.index < len(this.tokenlist):
+            this.current = this.tokenlist[this.index]
+        return this.current
+    def expr(this):
+        (this.tokenlist)
         response = Response()
-        if self.current.equal(tokens.KW, KEYWORD_DICT["variable_definition"]):
-            response.response(self.step())
+        if this.current.equals(tokens.KW, KEYWORD_DICT["variable_definition"]):
+            response.response(this.step())
 
-            if self.current.type != tokens.ID:
-                response.failure(SyntaxIllegalException(self.current.start, self.current.end, "Expected identifier"))
+            if this.current.type != tokens.ID:
+                response.failure(SyntaxIllegalException(this.current.start, this.current.end, "Expected identifier"))
             
-            name = self.current
-            response.response(self.step())
+            name = this.current
+            response.response(this.step())
 
-            if self.current.type != tokens.EQ :
-                return response.failure(SyntaxIllegalException(self.current.start, self.current.end, "Expected '='"))
+            if this.current.type != tokens.EQ :
+                return response.failure(SyntaxIllegalException(this.current.start, this.current.end, "Expected '='"))
 
-            response.response(self.step())
-            expression = response.response(self.expr())
+            response.response(this.step())
+            expression = response.response(this.expr())
             if response.error :
                 return response
             
             return response.success(VariableCreate(name, expression))
 
-        return self.operation(self.term, (tokens.PLUS, tokens.MINUS))
+        return this.operation(this.logical, ((tokens.KW, KEYWORD_DICT["logical_and"]),(tokens.KW, KEYWORD_DICT["logical_or"])))
+    def logical(this):
+        response = Response()
 
-    def operation(self, get, operation_tokens):
+        if this.current.equals(tokens.KW, KEYWORD_DICT["logical_not"]):
+            o = this.current
+            this.step()
+            response.response(this.step())
+
+            n = response.response(this.logical())
+            if check(response) :
+                return response
+            return response.success(Unary(o, n))
+        n = response.response(this.operation(this.math, (tokens.EE, tokens.NE, tokens.LT, tokens.GT, tokens.LTE, tokens.GTE, tokens.true, tokens.false)))
+
+        if check(response):
+            err = type(response.error)
+            return response.failure(err(this.current.start, this.current.end, "Invalid Syntax"))
+        return response.success(n)
+    def math(this):
+        return this.operation(this.term, (tokens.plus, tokens.minus))
+
+    def operation(this, get, operation_tokens):
         response = Response()
         l = response.response(get())
-        if check(response): return response
+        if check(response):
+            return response
 
-        while self.current.type in operation_tokens or (self.current.type,self.current.value) in operation_tokens:
-            o = self.current
-            response.response(self.step())
+        while this.current.type in operation_tokens or (this.current.type,this.current.value) in operation_tokens:
+            o = this.current
+            response.response(this.step())
             r = response.response(get())
-            if check(response): return response
+            if check(response):
+                return response
             l = Binary(l, o, r)
-        
         return response.success(l)
         
-    def term(self):
-        return self.operation(self.cell, (tokens.MUL, tokens.DIV, tokens.MOD))
+    def term(this):
+        return this.operation(this.cell, (tokens.mul, tokens.div))
 
-    def cell(self):
-        return self.operation(self.element, (tokens.POWER,))
+    def cell(this):
+        return this.operation(this.element, (tokens.POWER,))
     
-    def element(self):
+    def element(this):
         response = Response()
-        token = self.current
-        if token.type in (tokens.PLUS, tokens.MINUS):
-            response.response(self.step())
-            element = response.response(self.element())
+        token = this.current
+        if token.type in (tokens.plus, tokens.minus):
+            response.response(this.step())
+            element = response.response(this.element())
             if check(response):
                 return response
             return response.success(Unary(token, element))
         elif token.type == tokens.ID:
-            response.response(self.step())
+            response.response(this.step())
             return response.success(VariableAccess(token))
         
         elif token.type in (tokens.INT, tokens.DEC):
-            response.response(self.step())
+            response.response(this.step())
             return response.success(Number(token))
-        
+
+        elif token.type in (tokens.boolean,):
+            response.response(this.step())
+            return response.success(token.value)
+        elif token.type in (tokens.EE, tokens.NE, tokens.LT, tokens.GT, tokens.LTE, tokens.GTE): 
+            response.response(this.step())
+            return response.success(token.type)
         elif token.type == tokens.LPN :
-            response.response(self.step())
-            expression = response.response(self.expr())
+            response.response(this.step())
+            expression = response.response(this.expr())
             if check(response):
                 return response
-            if self.current.type == tokens.RPN:
-                response.response(self.step())
+            if this.current.type == tokens.RPN:
+                response.response(this.step())
                 return response.success(expression)
             else:
-                return response.failure(SyntaxIllegalException(self.current.start, self.current.end, "Expected a ')'"))
+                return response.failure(SyntaxIllegalException(this.current.start, this.current.end, "Expected a ')'"))
 
         return response.failure(SyntaxIllegalException(token.start, token.end, "Expected code "))
 class Position:
-    def __init__(self, index, line, col, name, text) -> None:
-        self.name = name
-        self.text = text
-        self.index = index
-        self.line = line
-        self.col = col
+    def __init__(this, index, line, col, name, text) -> None:
+        this.name = name
+        this.text = text
+        this.index = index
+        this.line = line
+        this.col = col
 
-    def step(self, current = None):
-        self.index += 1
-        self.col += 1
+    def step(this, current = None):
+        this.index += 1
+        this.col += 1
         
         if current == "\n":
-            self.line += 1
-            self.col = 0
-        return self
+            this.line += 1
+            this.col = 0
+        return this
     
-    def clone(self):
-        return Position(self.index, self.line, self.col, self.name, self.text)
+    def clone(this):
+        return Position(this.index, this.line, this.col, this.name, this.text)
 class VariableCreate:
-    def __init__(self, name_token, value) -> None:
-        self.name_token = name_token
-        self.value = value
+    def __init__(this, name_token, value) -> None:
+        this.name_token = name_token
+        this.value = value
 
-        self.start = self.name_token.start
-        self.end = self.value.end
+        this.start = this.name_token.start
+        this.end = this.value.end
 
 class VariableAccess:
-    def __init__(self, name_token) -> None:
-        self.name_token = name_token
+    def __init__(this, name_token) -> None:
+        this.name_token = name_token
 
-        self.start = self.name_token.start
-        self.end = self.name_token.end
+        this.start = this.name_token.start
+        this.end = this.name_token.end
 class Unary:
-    def __init__(self, o, n) -> None:
-        self.o = o
-        self.n = n
+    def __init__(this, o, n) -> None:
+        this.o = o
+        this.n = n
 
-        self.start = self.o.start
-        self.end = n.end
+        this.start = this.o.start
+        this.end = n.end
 
-    def __repr__(self) -> str:
-        return f"({self.o},{self.n})"
+    def __repr__(this) -> str:
+        return f"({this.o},{this.n})"
 
         
-class NoValue(Digit):
-    def __init__(self) -> None:
-        self.value = 0
+class NoValue(Int):
+    def __init__(this) -> None:
+        this.value = 0
 
-    def __repr__(self) -> str:
+    def __repr__(this) -> str:
+        return "nov"
+    def __str__(self) -> str:
         return "nov"
 
 
 global_data = DataTable()
 global_data.set("nov", NoValue())
-
+global_data.set("true", Bool(0))
+global_data.set("false", Bool(1))
+global_data.set("$EXPORTS", [])
 
 args = sys.argv
-with open(args[1], "r") as fobj:
-    code = fobj.read()
-run(args[1], code)
 
+def gettype(obj):
+    if type(obj) == Int:
+        return "Int"
+    if type(obj) == Bool:
+        return "Bool"
+    if type(obj) == NoValue:
+        return "nov"
+    return "Object"
+
+if len(args) == 2:
+    with open(args[1], "r") as fobj:
+        code = fobj.read()
+    run(args[1], code)
 
 
 
