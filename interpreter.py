@@ -1,6 +1,6 @@
 # This code is written by turrnut
 # open source under the AGPL-v3.0 license
-# Copyright
+# Copyright 2022 © turrnut
 #
 
 import sys
@@ -44,7 +44,7 @@ def run (filename, text):
         return None, abstract_syntax_tree.error
     resp = Calculator().cal(abstract_syntax_tree.fork, context)
     if type(resp) == tuple:
-        return RuntimeResponse().success(NoValue), None
+        return RuntimeResponse().success(NoValue()), None
     return resp, resp.error
 
 def check(obj):
