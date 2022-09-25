@@ -4,7 +4,7 @@ import interpreter as lang
 try:
 
     print(f"""
-The Zenith programming language
+ExInt - Expression Interpreter
 Version: {lang.version}
 """)
     while True:
@@ -12,7 +12,7 @@ Version: {lang.version}
         if enter == "quit":
             sys.exit(0)
 
-        result, error = lang.run("shell.zen", enter)
+        result, error = lang.run("shell.exint", enter)
         if error :
             print(error)
         else:
