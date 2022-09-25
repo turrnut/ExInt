@@ -8,7 +8,7 @@ ExInt - Expression Interpreter
 Version: {lang.version}
 """)
     while True:
-        enter = input("zenShell $ ")
+        enter = input("exint $ ")
         if enter == "quit":
             sys.exit(0)
 
