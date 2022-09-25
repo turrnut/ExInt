@@ -16,10 +16,13 @@ KEYWORD_DICT = {
     "boolaen_false":"false",
     "logical_and":"&&",
     "logical_not":"!=",
-    "logical_or":"||"
+    "logical_or":"||",
+    "if":"if",
+    "else_if":"elseif",
+    "else":"else"
 }
 
-VAR_PTN = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_" + "$|&"
+VAR_PTN = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_" + "$|&}{"
 DIGITS = "0123456789"
 
 FILENAME = ""
@@ -282,7 +285,7 @@ class Calculator:
             return response
         BANNED = ["nov"]
         for c in key:
-            if c in "$|&":
+            if c in "$|&}{":
                 response.error = NameException(fork.start, fork.end, f"Invalid Naming of variable {key}")
                 break    
 
@@ -413,9 +416,9 @@ class Tokenizer :
                 this.step()
             elif this.current in DIGITS:
                 tokenlist.append(this.numbers())
-            elif this.current in VAR_PTN :
-                tokenlist.append(this.id())
-                    
+            elif this.current in VAR_PTN:
+                tokenlist.append(this.id())   
+                this.step()
             elif this.current == "%":
                 tokenlist.append(Token(tokens.MOD, start=this.position))
                 this.step()
@@ -457,7 +460,6 @@ class Tokenizer :
                 this.step()
                 return [], CharacterIllegalException(start, this.position, "Illegal Characteracter '"+char+"'")
         tokenlist.append(Token(tokens.END, start = this.position))
-
         return tokenlist,None
 
     def lt(this):
@@ -519,6 +521,7 @@ class Tokenizer :
         for k in KEYWORD_DICT:
             if id == KEYWORD_DICT[k]:
                 token_type = tokens.KW
+            
         end = this.position
         if id == "true":
             token_type = tokens.boolean
@@ -616,7 +619,16 @@ class RuntimeResponse(Response):
     def success(this, value):
         this.value = value
         return this
-    
+class IfStatement:
+    def __init__(this, clause, eclause) -> None:
+        this.clause = clause
+        this.eclause = eclause
+        this.start = clause[0][0].o.start
+        if this.eclause :
+            this.end = eclause.end
+        else:
+            index = len(this.clause) - 1
+            this.end = this.clause[index][0]
 class Parser:
     def parse(this, tokens):
         this.current = None
@@ -698,6 +710,68 @@ class Parser:
     def cell(this):
         return this.operation(this.element, (tokens.POWER,))
     
+    def ife(this):
+        response = Response()
+        clause = []
+        eclause = None
+        if not this.current.equals(tokens.KW, KEYWORD_DICT["if"]):
+            return response.failure(SyntaxIllegalException(this.current.start, this.current.end, f"invalid Syntax"))
+            
+
+        response.response(this.step())
+        this.step()
+
+        con = response.response(this.expr())
+        if check(response):
+            return response
+
+        if not this.current.equals(KEYWORD_DICT, "{"):
+            return response.failure(SyntaxIllegalException(this.current.tart, this.current.end,f"Invalid Syntax"))
+        response.response(this.step())
+        this.step()
+
+        exp = response.response(this.expr())
+        if check(response):
+            return response
+        clause.append((con, exp))
+        # if not this.current.equals(tokens.KW, "}"):
+        #     return response.failure(SyntaxIllegalException(this.current.start, this.current.end, "Curly braces never closed"))
+        # response.response(this.step())
+        # this.step()
+        while this.current.equals(tokens.KW, KEYWORD_DICT["else_if"]):
+            response.response(this.step())
+            this.step()
+
+            con = response.response(this.expr())
+            if check(response):
+                return response
+
+            if not this.current.equals(tokens.KW, "{"): 
+                return response.failure(SyntaxIllegalException(this.current.start, this.current.end, f"Invalid Syntax"))
+
+            response.response(this.step())
+            this.step()
+
+            exp = response.response(this.expr())
+            if check(response):
+                return response
+            clause.append((con, exp))
+            # if not this.current.equals(tokens.KW, "}"):
+            #     return response.failure(SyntaxIllegalException(this.current.start, this.current.end, "Curly braces never closed"))
+            # response.response(this.step())
+            # this.step()
+        if this.current.equals(tokens.KW, KEYWORD_DICT["else"]):
+            response.response(this.step())
+            this.step()
+
+            eclause = response.response(this.expr())
+            if response.error:
+                return response
+            # if not this.current.equals(tokens.KW, "}"):
+            #     return response.failure(SyntaxIllegalException(this.current.start, this.current.end, "Curly braces never closed"))
+
+        return response.success(IfStatement(clause, eclause))
+
     def element(this):
         response = Response()
         token = this.current
@@ -721,6 +795,12 @@ class Parser:
         elif token.type in (tokens.EE, tokens.NE, tokens.LT, tokens.GT, tokens.LTE, tokens.GTE): 
             response.response(this.step())
             return response.success(token.type)
+        elif token.equals(tokens.KW, KEYWORD_DICT["if"]):
+            exp = response.response(this.ife())
+            if check(response):
+                return response
+            return response.success(exp)
+        
         elif token.type == tokens.LPN :
             response.response(this.step())
             expression = response.response(this.expr())
@@ -784,7 +864,7 @@ class NoValue(Int):
 
     def __repr__(this) -> str:
         return "nov"
-    def __str__(self) -> str:
+    def __str__(this) -> str:
         return "nov"
 
 
