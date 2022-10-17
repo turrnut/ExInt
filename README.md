@@ -1,4 +1,5 @@
 # ExInt
+## Project no longer in maintain. This repo will be open and accepting pull request.
 # 1.Introduction
 ExInt, stands for Expression Interpreter, helps you to calculate math and manages logic. It was developed by turrnut and first released September 24, 2022. It have a high performance and accurate calculation. Try ExInt now to evaluate an expression.
 # 2.Getting started
