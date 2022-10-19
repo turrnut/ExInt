@@ -102,6 +102,9 @@ def showerror(text, poss, pose):
     return "\a" + result
 class Object:
     pass
+
+# Int class
+# Int represent a single number. It can be integer or a decimal
 class Int(Object):
     def __init__(this, value) -> None:
         this.value = value
@@ -198,6 +201,8 @@ class Int(Object):
 
     def check(this, obj):
         return isinstance(obj, Int) and obj != None
+# Bool class
+# Bool represent a boolean value which can only be 'true' or 'false'
 class Bool(Object):
     def __init__(this, value) -> None:
         this.value = value
@@ -269,6 +274,8 @@ class Bool(Object):
             return "true"
         return "false"
 
+# class Calculator
+# the calculator receives parsed tokens and evaluate the expression to produce the final output
 class Calculator:
     def cal(this, fork, context):
         name = f"cal_{type(fork).__name__}"
@@ -380,7 +387,9 @@ class Enviroment:
         this.parent = parent
         this.parent_position = parent_position
         this.symbols = DataTable()
-
+        
+# class Token
+# represent a token
 class Token:
     def __init__(this, type, value=None, start=None, end=None) -> None:
         this.type = type
