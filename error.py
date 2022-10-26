@@ -1,3 +1,5 @@
+# Errors in the interpreter
+
 import interpreter as lang
 
 class Exception:
